@@ -419,24 +419,62 @@
       overflow: hidden;
       display: none;
       border: 1px solid var(--line);
-      cursor: move;
+      grid-template-rows: auto auto 1fr;
+      cursor: default;
     }
-    .floating-window img {
+    .floating-image-viewport {
       width: 100%;
       height: 100%;
+      overflow: auto;
+      display: block;
+      padding: 14px;
+      cursor: default;
+    }
+    .floating-content {
+      width: max-content;
+      min-width: 100%;
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+    }
+    .floating-window img {
+      display: block;
+      max-width: none;
+      max-height: none;
       object-fit: contain;
       pointer-events: none;
       user-select: none;
+      transition: width 0.12s ease;
     }
-    .floating-close-btn {
-      position: absolute;
-      top: 8px;
-      right: 8px;
+    .floating-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 8px;
+      background: rgba(15, 23, 42, 0.86);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      z-index: 2010;
+      cursor: move;
+      user-select: none;
+    }
+    .floating-title-row {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+      background: rgba(15, 23, 42, 0.72);
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 13px;
+      font-weight: 800;
+      padding: 7px 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .floating-tool-btn {
       background: rgba(15, 23, 42, 0.6);
       color: #fff;
       border: none;
-      border-radius: 50%;
-      width: 24px;
+      border-radius: 999px;
+      min-width: 28px;
       height: 24px;
       display: flex;
       align-items: center;
@@ -444,15 +482,36 @@
       cursor: pointer;
       font-size: 14px;
       line-height: 1;
-      opacity: 0;
+      opacity: 0.92;
       transition: opacity 0.2s ease;
-      z-index: 2010;
+      padding: 0 8px;
     }
-    .floating-window:hover .floating-close-btn {
-      opacity: 1;
+    .floating-tool-btn.active {
+      background: rgba(37, 99, 235, 0.9);
     }
-    .floating-close-btn:hover {
+    .floating-tool-btn:hover {
+      background: rgba(37, 99, 235, 0.85);
+    }
+    #floatingCloseBtn:hover {
       background: var(--danger);
+    }
+    .floating-opacity-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-left: 6px;
+      border-left: 1px solid rgba(255, 255, 255, 0.14);
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .floating-opacity-control input {
+      width: 78px;
+      accent-color: #60a5fa;
+    }
+    .floating-opacity-value {
+      width: 34px;
+      text-align: right;
     }
     .image-preview img {
       cursor: pointer;
@@ -527,7 +586,7 @@
   <header class="topbar">
     <div class="topbar-inner">
       <div>
-        <h1>FALO OCR Workbench <span style="font-size: 13px; color: var(--accent);">v1.01</span></h1>
+        <h1>FALO OCR Workbench <span style="font-size: 13px; color: var(--accent);">v1.02</span></h1>
         <p class="subtitle">獨立 PWA 元件：圖片 + OCR 操作 Prompt → 可編修文字結果。</p>
       </div>
       <div class="toolbar-actions">
@@ -555,6 +614,7 @@
             <option value="768">低</option>
             <option value="1280" selected>中</option>
             <option value="1600">高</option>
+            <option value="original">原檔</option>
           </select>
         </div>
         <div class="field">
@@ -807,7 +867,7 @@
               <div><strong>API 執行耗時：</strong> <span id="detailLatency"></span> ms</div>
               <div><strong>影像檔名：</strong> <span id="detailFileName"></span></div>
               <div><strong>影像原始大小：</strong> <span id="detailOrigSize"></span></div>
-              <div><strong>影像優化大小：</strong> <span id="detailOptSize"></span> (<span id="detailDims"></span>)</div>
+              <div><strong>送出影像大小：</strong> <span id="detailOptSize"></span> (<span id="detailDims"></span>)</div>
               <div><strong>真實輸入 Tokens：</strong> <span id="detailPromptTokens"></span></div>
               <div><strong>真實輸出 Tokens：</strong> <span id="detailOutputTokens"></span></div>
               <div><strong>總共計費 Tokens：</strong> <span id="detailTotalTokens"></span></div>
@@ -895,8 +955,27 @@
 
   <!-- Floating Image Window -->
   <div class="floating-window" id="floatingWindow">
-    <button class="floating-close-btn" id="floatingCloseBtn" type="button" aria-label="Close floating preview">&times;</button>
-    <img id="floatingImg" src="" alt="Floating Preview">
+    <div class="floating-toolbar">
+      <button class="floating-tool-btn" id="floatingCloseBtn" type="button" aria-label="Close floating preview">&times;</button>
+      <button class="floating-tool-btn" id="floatingZoomOutBtn" type="button" aria-label="Zoom out">-</button>
+      <button class="floating-tool-btn" id="floatingZoomResetBtn" type="button" aria-label="Reset zoom">100%</button>
+      <button class="floating-tool-btn" id="floatingZoomInBtn" type="button" aria-label="Zoom in">+</button>
+      <button class="floating-tool-btn" data-floating-size="small" type="button" aria-label="Small preview window">小</button>
+      <button class="floating-tool-btn" data-floating-size="medium" type="button" aria-label="Medium preview window">中</button>
+      <button class="floating-tool-btn" data-floating-size="large" type="button" aria-label="Large preview window">大</button>
+      <button class="floating-tool-btn" data-floating-size="wide" type="button" aria-label="Wide preview window">滿</button>
+      <label class="floating-opacity-control" for="floatingOpacityRange">
+        透明
+        <input id="floatingOpacityRange" type="range" min="40" max="100" value="96">
+        <span class="floating-opacity-value" id="floatingOpacityValue">96%</span>
+      </label>
+    </div>
+    <div class="floating-title-row" id="floatingTitle">圖片預覽</div>
+    <div class="floating-image-viewport" id="floatingImageViewport">
+      <div class="floating-content" id="floatingContent">
+        <img id="floatingImg" src="" alt="Floating Preview">
+      </div>
+    </div>
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -912,7 +991,7 @@
       selectedModelB: "falo_ocr_selected_model_b_v01",
       selectedLongSide: "falo_ocr_selected_longside_v01",
       dualOcrMode: "falo_ocr_dual_mode_v01",
-      nanoTemplates: "falo_nano_prompt_templates_v101",
+      nanoTemplates: "falo_nano_prompt_templates_v102",
       selectedNanoTemplate: "falo_nano_selected_template_v101"
     };
 
@@ -985,6 +1064,13 @@
         description: "將 OCR 結果轉為繁體中文，並修正常見辨識錯字。",
         prompt: "請將以下辨識出的文字統一轉換為繁體中文，修正明顯的文字錯誤與語病，並保持原文段落結構：\n\n【辨識文字】\n{{RESULT_A}}",
         status: "stable"
+      },
+      {
+        id: "merged-output",
+        title: "匯總輸出",
+        description: "比對 OCR 結果 A/B 後，彙整出最可能、最適合書面使用的版本。",
+        prompt: "請比對以下兩個 OCR 辨識結果的文字後，彙整出最可能的版本。\n\n【辨識模型資訊】\n- 結果 A 模型：{{MODEL_A}}\n- 結果 B 模型：{{MODEL_B}}\n\n【結果 A】\n{{RESULT_A}}\n\n【結果 B】\n{{RESULT_B}}\n\n請輸出：\n1. 最可能的完整整合版本\n2. 有疑義或需要人工確認的地方\n3. A/B 差異對整合判斷的影響",
+        status: "stable"
       }
     ];
 
@@ -995,6 +1081,32 @@
     let activeCurrencyMode = "dual";
     let dualOcrMode = false;
     let nanoSession = null;
+    let previewImageUrl = "";
+    let previewImageName = "圖片預覽";
+    let floatingImageOrientation = "neutral";
+    let activeFloatingSize = "medium";
+    let floatingNaturalWidth = 0;
+    let floatingNaturalHeight = 0;
+    let floatingZoom = 1;
+    const floatingZoomSteps = [0.10, 0.20, 0.50, 0.70, 1, 1.50, 2, 3, 4];
+    const floatingSizePresets = {
+      portrait: {
+        small: { width: 420, height: 560 },
+        medium: { width: 560, height: 760 },
+        large: { width: 720, height: 920 }
+      },
+      landscape: {
+        small: { width: 560, height: 420 },
+        medium: { width: 860, height: 560 },
+        large: { width: 1060, height: 700 }
+      },
+      neutral: {
+        small: { width: 420, height: 320 },
+        medium: { width: 720, height: 520 },
+        large: { width: 960, height: 680 }
+      },
+      wide: { widthRatio: 0.92, heightRatio: 0.82 }
+    };
 
     const els = {
       installButton: document.getElementById("installButton"),
@@ -1051,7 +1163,15 @@
       drawerTabContentPricing: document.getElementById("drawerTabContentPricing"),
       floatingWindow: document.getElementById("floatingWindow"),
       floatingCloseBtn: document.getElementById("floatingCloseBtn"),
+      floatingImageViewport: document.getElementById("floatingImageViewport"),
+      floatingContent: document.getElementById("floatingContent"),
       floatingImg: document.getElementById("floatingImg"),
+      floatingTitle: document.getElementById("floatingTitle"),
+      floatingZoomOutBtn: document.getElementById("floatingZoomOutBtn"),
+      floatingZoomResetBtn: document.getElementById("floatingZoomResetBtn"),
+      floatingZoomInBtn: document.getElementById("floatingZoomInBtn"),
+      floatingOpacityRange: document.getElementById("floatingOpacityRange"),
+      floatingOpacityValue: document.getElementById("floatingOpacityValue"),
       // Nano Elements
       nanoStatusBadge: document.getElementById("nanoStatusBadge"),
       detectNanoBtn: document.getElementById("detectNanoBtn"),
@@ -1238,8 +1358,9 @@
       let initialTop = 0;
 
       el.addEventListener("mousedown", (e) => {
-        // Prevent dragging when clicking the close button
-        if (e.target.closest(".floating-close-btn")) return;
+        // Drag from the toolbar/title area only; keep controls and scroll viewport usable.
+        if (!e.target.closest(".floating-toolbar") && !e.target.closest(".floating-title-row")) return;
+        if (e.target.closest(".floating-tool-btn") || e.target.closest("input")) return;
         
         // Prevent dragging when resizing at the bottom-right corner
         const rect = el.getBoundingClientRect();
@@ -1307,7 +1428,7 @@
         apiKeyMasked: details.apiKeyMasked || "",
         originalFileName: details.originalFileName || "",
         originalFileSize: details.originalFileSize || 0,
-        compressedFileSize: details.compressedFileSize || 0,
+        preparedFileSize: details.preparedFileSize || 0,
         imageWidth: details.imageWidth || 0,
         imageHeight: details.imageHeight || 0,
         promptSnippet: details.promptSnippet || "",
@@ -1462,7 +1583,7 @@
       document.getElementById("detailLatency").textContent = log.latencyMs || "0";
       document.getElementById("detailFileName").textContent = log.originalFileName || "N/A";
       document.getElementById("detailOrigSize").textContent = log.originalFileSize ? (log.originalFileSize + " bytes") : "N/A";
-      document.getElementById("detailOptSize").textContent = log.compressedFileSize ? (log.compressedFileSize + " bytes") : "N/A";
+      document.getElementById("detailOptSize").textContent = log.preparedFileSize ? (log.preparedFileSize + " bytes") : "N/A";
       document.getElementById("detailDims").textContent = (log.imageWidth && log.imageHeight) ? `${log.imageWidth}x${log.imageHeight}` : "N/A";
       document.getElementById("detailPromptTokens").textContent = log.promptTokens || "0";
       document.getElementById("detailOutputTokens").textContent = log.candidatesTokens || "0";
@@ -1494,7 +1615,7 @@
       
       const columns = [
         "id", "timestamp", "action", "model", "apiKeyMasked", 
-        "originalFileName", "originalFileSize", "compressedFileSize", 
+        "originalFileName", "originalFileSize", "preparedFileSize", 
         "imageWidth", "imageHeight", "promptSnippet", "ocrResultSnippet", 
         "latencyMs", "httpStatus", "promptTokens", "candidatesTokens", 
         "totalTokens", "estCostUsd", "rawResponse", "rawRequest"
@@ -1502,7 +1623,7 @@
       
       const headers = [
         "交易編號(ID)", "時間戳記(Timestamp)", "動作(Action)", "模型(Model)", "金鑰遮罩(APIKeyMasked)", 
-        "原始檔名(OriginalFileName)", "原始大小(OriginalFileSize)", "壓縮大小(CompressedFileSize)", 
+        "原始檔名(OriginalFileName)", "原始大小(OriginalFileSize)", "送出大小(PreparedFileSize)", 
         "影像寬度(ImageWidth)", "影像高度(ImageHeight)", "Prompt內容(PromptSnippet)", "辨識結果(OcrResultSnippet)", 
         "耗時毫秒(LatencyMs)", "HTTP狀態碼(HttpStatus)", "輸入Tokens(PromptTokens)", "輸出Tokens(CandidatesTokens)", 
         "總共Tokens(TotalTokens)", "估計費用USD(EstCostUsd)", "API回應Payload(RawResponse)", "API請求Payload(RawRequest)"
@@ -1543,7 +1664,7 @@
           const keyI = idx(["金鑰遮罩(APIKeyMasked)", "apiKeyMasked"]);
           const origNameI = idx(["原始檔名(OriginalFileName)", "originalFileName"]);
           const origSizeI = idx(["原始大小(OriginalFileSize)", "originalFileSize"]);
-          const compSizeI = idx(["壓縮大小(CompressedFileSize)", "compressedFileSize"]);
+          const preparedSizeI = idx(["送出大小(PreparedFileSize)", "preparedFileSize"]);
           const wI = idx(["影像寬度(ImageWidth)", "imageWidth"]);
           const hI = idx(["影像高度(ImageHeight)", "imageHeight"]);
           const promptI = idx(["Prompt內容(PromptSnippet)", "promptSnippet"]);
@@ -1569,7 +1690,7 @@
             apiKeyMasked: keyI !== -1 ? (row[keyI] || "") : "",
             originalFileName: origNameI !== -1 ? (row[origNameI] || "") : "",
             originalFileSize: origSizeI !== -1 ? Number(row[origSizeI] || 0) : 0,
-            compressedFileSize: compSizeI !== -1 ? Number(row[compSizeI] || 0) : 0,
+            preparedFileSize: preparedSizeI !== -1 ? Number(row[preparedSizeI] || 0) : 0,
             imageWidth: wI !== -1 ? Number(row[wI] || 0) : 0,
             imageHeight: hI !== -1 ? Number(row[hI] || 0) : 0,
             promptSnippet: promptI !== -1 ? (row[promptI] || "") : "",
@@ -1950,25 +2071,145 @@
     function setupImagePreview(file) {
       if (!file) return;
       if (!file.type.startsWith("image/")) {
+        releasePreviewImageUrl();
         els.imagePreview.textContent = "目前只預覽圖片檔。";
         return;
       }
-      const url = URL.createObjectURL(file);
+      releasePreviewImageUrl();
+      previewImageUrl = URL.createObjectURL(file);
       const image = document.createElement("img");
-      image.src = url;
+      image.src = previewImageUrl;
       image.alt = file.name;
-      image.onload = () => URL.revokeObjectURL(url);
+      previewImageName = file.name;
+      image.addEventListener("load", () => updateFloatingImageDefaults(image));
       els.imagePreview.replaceChildren(image);
     }
 
-    // Canvas WebP compression engine
-    function canvasToBlob(canvas, type, quality) {
-      return new Promise((resolve, reject) => {
-        canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Canvas 壓縮失敗")), type, quality);
+    function releasePreviewImageUrl() {
+      if (!previewImageUrl) return;
+      URL.revokeObjectURL(previewImageUrl);
+      previewImageUrl = "";
+    }
+
+    function setFloatingZoom(nextZoom) {
+      floatingZoom = Math.max(0.10, Math.min(4, nextZoom));
+      const baseWidth = floatingNaturalWidth || els.floatingImg.naturalWidth || 900;
+      els.floatingImg.style.width = `${Math.max(80, Math.round(baseWidth * floatingZoom))}px`;
+      els.floatingImg.style.height = "auto";
+      els.floatingZoomResetBtn.textContent = `${Math.round(floatingZoom * 100)}%`;
+    }
+
+    function floatingZoomOut() {
+      const currentIndex = floatingZoomSteps.findIndex((step) => step >= floatingZoom - 0.001);
+      const nextIndex = Math.max(0, currentIndex - 1);
+      setFloatingZoom(floatingZoomSteps[nextIndex]);
+    }
+
+    function floatingZoomIn() {
+      const currentIndex = floatingZoomSteps.findIndex((step) => step >= floatingZoom - 0.001);
+      const nextIndex = Math.min(floatingZoomSteps.length - 1, currentIndex + 1);
+      setFloatingZoom(floatingZoomSteps[nextIndex]);
+    }
+
+    function updateFloatingImageDefaults(image) {
+      if (!image.naturalWidth || !image.naturalHeight) return;
+      floatingNaturalWidth = image.naturalWidth;
+      floatingNaturalHeight = image.naturalHeight;
+      floatingImageOrientation = floatingNaturalHeight > floatingNaturalWidth ? "portrait" : "landscape";
+      activeFloatingSize = "medium";
+      updateFloatingSizeButtons();
+    }
+
+    function getFloatingSizePreset(name) {
+      if (name === "wide") return floatingSizePresets.wide;
+      const group = floatingSizePresets[floatingImageOrientation] || floatingSizePresets.neutral;
+      return group[name] || floatingSizePresets.neutral.medium;
+    }
+
+    function setFloatingSizePreset(name) {
+      const preset = getFloatingSizePreset(name);
+      activeFloatingSize = name;
+      const width = preset.widthRatio ? Math.round(window.innerWidth * preset.widthRatio) : preset.width;
+      const height = preset.heightRatio ? Math.round(window.innerHeight * preset.heightRatio) : preset.height;
+      const safeWidth = Math.min(width, window.innerWidth - 24);
+      const safeHeight = Math.min(height, window.innerHeight - 24);
+      els.floatingWindow.style.width = `${Math.max(320, safeWidth)}px`;
+      els.floatingWindow.style.height = `${Math.max(240, safeHeight)}px`;
+      els.floatingWindow.style.left = `${Math.max(12, Math.round((window.innerWidth - safeWidth) / 2))}px`;
+      els.floatingWindow.style.top = `${Math.max(12, Math.round((window.innerHeight - safeHeight) / 2))}px`;
+      updateFloatingSizeButtons();
+    }
+
+    function updateFloatingSizeButtons() {
+      document.querySelectorAll("[data-floating-size]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.floatingSize === activeFloatingSize);
       });
     }
 
-    async function optimizeImage(file, maxLongSide) {
+    function setFloatingOpacity(value) {
+      const opacity = Math.max(40, Math.min(100, Number(value)));
+      els.floatingWindow.style.opacity = String(opacity / 100);
+      els.floatingOpacityRange.value = String(opacity);
+      els.floatingOpacityValue.textContent = `${opacity}%`;
+    }
+
+    function openFloatingPreview() {
+      if (!previewImageUrl) return;
+      els.floatingTitle.textContent = previewImageName || "圖片預覽";
+      els.floatingImg.src = previewImageUrl;
+      els.floatingImg.onload = () => {
+        updateFloatingImageDefaults(els.floatingImg);
+        setFloatingSizePreset(activeFloatingSize);
+        setFloatingZoom(1);
+      };
+      els.floatingImageViewport.scrollTop = 0;
+      els.floatingImageViewport.scrollLeft = 0;
+      els.floatingWindow.style.display = "grid";
+      setFloatingOpacity(els.floatingOpacityRange.value);
+      setFloatingSizePreset(activeFloatingSize);
+      setFloatingZoom(1);
+    }
+
+    function closeFloatingPreview() {
+      els.floatingWindow.style.display = "none";
+    }
+
+    function canvasToPayloadBlob(canvas, type, quality) {
+      return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("影像準備失敗")), type, quality);
+      });
+    }
+
+    async function readBlobAsBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function readOriginalImagePayload(file) {
+      const bitmap = await createImageBitmap(file);
+      const width = bitmap.width;
+      const height = bitmap.height;
+      if (typeof bitmap.close === "function") bitmap.close();
+      return {
+        base64: await readBlobAsBase64(file),
+        mimeType: file.type || "image/png",
+        width,
+        height,
+        size: file.size,
+        deliveryMode: "original"
+      };
+    }
+
+    async function prepareImagePayload(file, qualityMode) {
+      if (qualityMode === "original") {
+        return readOriginalImagePayload(file);
+      }
+
+      const maxLongSide = Number(qualityMode || 1280);
       // Copyright (c) FALO X TAAT x Force Cheng 2026/6/1. All rights reserved.
       const bitmap = await createImageBitmap(file);
       const longSide = Math.max(bitmap.width, bitmap.height);
@@ -1989,21 +2230,14 @@
       if (maxLongSide <= 768) quality = 0.85;
       else if (maxLongSide >= 1600) quality = 0.90;
 
-      const blob = await canvasToBlob(canvas, "image/webp", quality);
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      const blob = await canvasToPayloadBlob(canvas, "image/webp", quality);
       return {
-        base64,
+        base64: await readBlobAsBase64(blob),
         mimeType: "image/webp",
         width: canvas.width,
         height: canvas.height,
         size: blob.size,
-        scale,
-        quality
+        deliveryMode: "prepared"
       };
     }
 
@@ -2127,7 +2361,7 @@
       const modelA = els.modelSelect.value;
       const modelB = els.modelSelectB.value;
       const prompt = els.promptTemplate.value.trim();
-      const maxLongSide = Number(els.longSideSelect.value || 1280);
+      const imageQualityMode = els.longSideSelect.value || "1280";
 
       if (!apiKey) {
         showToast("錯誤：請先輸入 Gemini API 金鑰。");
@@ -2143,22 +2377,22 @@
       }
 
       els.runOcrButton.disabled = true;
-      els.runOcrButton.textContent = "⚡ 影像壓縮中...";
+      els.runOcrButton.textContent = "⚡ 影像準備中...";
 
       const apiKeyMasked = apiKey.length > 10 ? (apiKey.substring(0, 6) + "..." + apiKey.substring(apiKey.length - 4)) : "Invalid";
 
       let imageInfo = null;
       try {
-        imageInfo = await optimizeImage(file, maxLongSide);
+        imageInfo = await prepareImagePayload(file, imageQualityMode);
       } catch (error) {
-        showToast(`影像壓縮失敗: ${error.message}`);
+        showToast(`影像準備失敗: ${error.message}`);
         els.runOcrButton.disabled = false;
         els.runOcrButton.textContent = "⚡ 開始 Gemini OCR 辨識";
         return;
       }
 
       els.runOcrButton.textContent = dualOcrMode ? "⚡ 雙 OCR 辨識中..." : "⚡ Gemini 辨識中...";
-      showToast(`已優化 WebP (${imageInfo.width}x${imageInfo.height})，發送請求中...`);
+      showToast("圖片已準備，送出辨識中...");
 
       if (!dualOcrMode) {
         const startTime = Date.now();
@@ -2187,7 +2421,7 @@
               apiKeyMasked,
               originalFileName: file.name,
               originalFileSize: file.size,
-              compressedFileSize: imageInfo.size,
+              preparedFileSize: imageInfo.size,
               imageWidth: imageInfo.width,
               imageHeight: imageInfo.height,
               promptSnippet: prompt,
@@ -2199,7 +2433,7 @@
               totalTokens,
               estCostUsd,
               rawResponse: res.rawText,
-              rawRequest: JSON.stringify({ model: modelA, maxLongSide, promptText: prompt })
+              rawRequest: JSON.stringify({ model: modelA, imageQualityMode, promptText: prompt })
             });
           } else {
             throw new Error("未接收到有效文字，請檢查 Prompt 或圖片內容。");
@@ -2222,7 +2456,7 @@
             apiKeyMasked,
             originalFileName: file.name,
             originalFileSize: file.size,
-            compressedFileSize: imageInfo.size,
+            preparedFileSize: imageInfo.size,
             imageWidth: imageInfo.width,
             imageHeight: imageInfo.height,
             promptSnippet: prompt,
@@ -2234,7 +2468,7 @@
             totalTokens: 0,
             estCostUsd: 0,
             rawResponse: JSON.stringify({ error: error.message || error }),
-            rawRequest: JSON.stringify({ model: modelA, maxLongSide, promptText: prompt })
+            rawRequest: JSON.stringify({ model: modelA, imageQualityMode, promptText: prompt })
           });
         } finally {
           els.runOcrButton.disabled = false;
@@ -2282,7 +2516,7 @@
             apiKeyMasked,
             originalFileName: file.name,
             originalFileSize: file.size,
-            compressedFileSize: imageInfo.size,
+            preparedFileSize: imageInfo.size,
             imageWidth: imageInfo.width,
             imageHeight: imageInfo.height,
             promptSnippet: prompt,
@@ -2294,7 +2528,7 @@
             totalTokens,
             estCostUsd,
             rawResponse: res.rawText,
-            rawRequest: JSON.stringify({ model: modelA, maxLongSide, promptText: prompt })
+            rawRequest: JSON.stringify({ model: modelA, imageQualityMode, promptText: prompt })
           });
         } else {
           const err = resA.reason;
@@ -2310,7 +2544,7 @@
             apiKeyMasked,
             originalFileName: file.name,
             originalFileSize: file.size,
-            compressedFileSize: imageInfo.size,
+            preparedFileSize: imageInfo.size,
             imageWidth: imageInfo.width,
             imageHeight: imageInfo.height,
             promptSnippet: prompt,
@@ -2322,7 +2556,7 @@
             totalTokens: 0,
             estCostUsd: 0,
             rawResponse: JSON.stringify({ error: err.message || err }),
-            rawRequest: JSON.stringify({ model: modelA, maxLongSide, promptText: prompt })
+            rawRequest: JSON.stringify({ model: modelA, imageQualityMode, promptText: prompt })
           });
         }
 
@@ -2346,7 +2580,7 @@
             apiKeyMasked,
             originalFileName: file.name,
             originalFileSize: file.size,
-            compressedFileSize: imageInfo.size,
+            preparedFileSize: imageInfo.size,
             imageWidth: imageInfo.width,
             imageHeight: imageInfo.height,
             promptSnippet: prompt,
@@ -2358,7 +2592,7 @@
             totalTokens,
             estCostUsd,
             rawResponse: res.rawText,
-            rawRequest: JSON.stringify({ model: modelB, maxLongSide, promptText: prompt })
+            rawRequest: JSON.stringify({ model: modelB, imageQualityMode, promptText: prompt })
           });
         } else {
           const err = resB.reason;
@@ -2374,7 +2608,7 @@
             apiKeyMasked,
             originalFileName: file.name,
             originalFileSize: file.size,
-            compressedFileSize: imageInfo.size,
+            preparedFileSize: imageInfo.size,
             imageWidth: imageInfo.width,
             imageHeight: imageInfo.height,
             promptSnippet: prompt,
@@ -2386,7 +2620,7 @@
             totalTokens: 0,
             estCostUsd: 0,
             rawResponse: JSON.stringify({ error: err.message || err }),
-            rawRequest: JSON.stringify({ model: modelB, maxLongSide, promptText: prompt })
+            rawRequest: JSON.stringify({ model: modelB, imageQualityMode, promptText: prompt })
           });
         }
 
@@ -2467,7 +2701,7 @@
       if (total > 1) {
         els.nanoProgressText.textContent = `下載進度：${percent}% (${(loaded / 1024 / 1024).toFixed(1)} MB / ${(total / 1024 / 1024).toFixed(1)} MB)`;
       } else if (percent >= 100) {
-        els.nanoProgressText.textContent = "下載完成，正在解壓縮並載入模型...";
+        els.nanoProgressText.textContent = "下載完成，正在載入模型...";
       } else {
         els.nanoProgressText.textContent = `下載進度：${percent}%`;
       }
@@ -2849,15 +3083,14 @@
     }
 
     // Floating image preview window triggers
-    els.imagePreview.addEventListener("click", () => {
-      const img = els.imagePreview.querySelector("img");
-      if (img) {
-        els.floatingImg.src = img.src;
-        els.floatingWindow.style.display = "block";
-      }
-    });
-    els.floatingCloseBtn.addEventListener("click", () => {
-      els.floatingWindow.style.display = "none";
+    els.imagePreview.addEventListener("click", openFloatingPreview);
+    els.floatingCloseBtn.addEventListener("click", closeFloatingPreview);
+    els.floatingZoomOutBtn.addEventListener("click", floatingZoomOut);
+    els.floatingZoomResetBtn.addEventListener("click", () => setFloatingZoom(1));
+    els.floatingZoomInBtn.addEventListener("click", floatingZoomIn);
+    els.floatingOpacityRange.addEventListener("input", (event) => setFloatingOpacity(event.target.value));
+    document.querySelectorAll("[data-floating-size]").forEach((button) => {
+      button.addEventListener("click", () => setFloatingSizePreset(button.dataset.floatingSize));
     });
     initDraggableWindow(els.floatingWindow);
 
